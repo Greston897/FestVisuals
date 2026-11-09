@@ -67,9 +67,10 @@ jobs:
             echo "exe is heavier than 170 MB"
             exit 1
           fi
-          notes="Один portable exe для Windows, без установщика.
-Мод скачивается при первом запуске — нужен интернет.
-Сборка: ${GITHUB_SHA}"
+          notes=$(printf '%s\n' \
+            'Один portable exe для Windows, без установщика.' \
+            'Мод скачивается при первом запуске — нужен интернет.' \
+            "Сборка: ${GITHUB_SHA}")
           if gh release view launcher >/dev/null 2>&1; then
             gh release upload launcher "${exe[0]}" --clobber
             gh release edit launcher --target "$GITHUB_SHA" --title "FestVisuals Launcher" --notes "$notes" --latest
