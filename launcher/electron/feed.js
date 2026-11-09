@@ -10,7 +10,8 @@ const FEED = 'https://github.com/Daniiltoptl/FestVisuals-Releases/releases/downl
 
 /**
  * Path of the newest FestVisuals jar available: freshly downloaded when the feed has a new build,
- * else the cached copy, else the one bundled with the launcher (offline first start).
+ * else the cached copy, else a jar bundled next to the launcher if one was shipped.
+ * The published exe does not embed the mod, so the first launch needs the feed.
  */
 export async function latestFestVisuals(root, bundledJar, progress) {
   const dir = path.join(root, 'cache', 'festvisuals');
@@ -29,6 +30,8 @@ export async function latestFestVisuals(root, bundledJar, progress) {
     }
     return jar;
   } catch {
-    return fs.existsSync(jar) ? jar : bundledJar;
+    if (fs.existsSync(jar)) return jar;
+    if (bundledJar && fs.existsSync(bundledJar)) return bundledJar;
+    throw new Error('Не удалось скачать мод FestVisuals. Для первого запуска нужен интернет.');
   }
 }

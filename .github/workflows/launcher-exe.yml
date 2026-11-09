@@ -1,7 +1,7 @@
 name: Launcher exe
 
-# Compiles the Windows launcher (.exe) and uploads it as a build artifact.
-# Does not publish a release — that stays on main in launcher.yml.
+# Builds one portable Windows exe and publishes it on this repo's rolling "launcher" release.
+# Does not publish to Daniiltoptl/FestVisuals-Releases — that stays on main in launcher.yml.
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: launcher-exe-${{ github.ref }}
@@ -41,22 +41,46 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Bundle the current mod
-        run: node scripts/bundle-mod.mjs
-
       - name: Build UI
         run: npm run build
 
       - name: Build Windows exe
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npx electron-builder --win nsis portable --publish never
+        run: npx electron-builder --win portable --publish never
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          exe=(release/*.exe)
+          if [ ${#exe[@]} -ne 1 ]; then
+            echo "expected one exe, found: ${exe[*]}"
+            exit 1
+          fi
+          bytes=$(wc -c < "${exe[0]}")
+          echo "exe=${exe[0]} bytes=${bytes}"
+          # Electron's own Windows runtime is ~158 MB packed. Above 170 MB means a second copy
+          # or the mod jar slipped back in.
+          if [ "$bytes" -gt 170000000 ]; then
+            echo "exe is heavier than 170 MB"
+            exit 1
+          fi
+          notes="Один portable exe для Windows, без установщика.
+Мод скачивается при первом запуске — нужен интернет.
+Сборка: ${GITHUB_SHA}"
+          if gh release view launcher >/dev/null 2>&1; then
+            gh release upload launcher "${exe[0]}" --clobber
+            gh release edit launcher --target "$GITHUB_SHA" --title "FestVisuals Launcher" --notes "$notes" --latest
+          else
+            gh release create launcher "${exe[0]}" --target "$GITHUB_SHA" --title "FestVisuals Launcher" --notes "$notes" --latest
+          fi
 
       - name: Upload exe
         uses: actions/upload-artifact@v4
         with:
           name: festvisuals-launcher-exe
-          path: |
-            launcher/release/*.exe
+          path: launcher/release/*.exe
           retention-days: 14
           if-no-files-found: error

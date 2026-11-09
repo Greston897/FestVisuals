@@ -98,23 +98,23 @@
     "directories": {
       "output": "release"
     },
+    "compression": "maximum",
+    "electronLanguages": ["en-US", "ru"],
     "files": [
       "dist/**/*",
       "electron/**/*",
       "package.json"
     ],
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
       "icon": "electron/icon.png"
     },
     "extraResources": [
-      {
-        "from": "mod",
-        "to": "mod",
-        "filter": [
-          "festvisuals.jar"
-        ]
-      },
       {
         "from": "../jarvis-server",
         "to": "jarvis",
