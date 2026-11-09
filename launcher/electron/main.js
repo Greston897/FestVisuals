@@ -70,19 +70,24 @@ function setupUpdater() {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1280,
+    height: 820,
+    minWidth: 1040,
+    minHeight: 720,
+    show: false,
     title: 'FestVisuals Launcher',
     icon: path.join(__dirname, 'icon.png'),
     autoHideMenuBar: true,
     frame: false,
-    backgroundColor: '#0b0b0f',
+    backgroundColor: '#07060b',
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
       spellcheck: false,
     },
   });
+
+  win.once('ready-to-show', () => win && win.show());
 
   if (!app.isPackaged) {
     win.loadURL('http://localhost:8080');

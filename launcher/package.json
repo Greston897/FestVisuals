@@ -16,6 +16,7 @@
     "portable": "node scripts/bundle-mod.mjs && electron-builder --win portable --publish never"
   },
   "dependencies": {
+    "@fontsource-variable/manrope": "^5.3.0",
     "electron-updater": "^6.8.9",
     "minecraft-launcher-core": "^3.18.2"
   },

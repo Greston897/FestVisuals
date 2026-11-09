@@ -1,0 +1,62 @@
+name: Launcher exe
+
+# Compiles the Windows launcher (.exe) and uploads it as a build artifact.
+# Does not publish a release — that stays on main in launcher.yml.
+
+on:
+  push:
+    branches:
+      - arena/f4911e93-festvisuals
+    paths:
+      - 'launcher/**'
+      - 'jarvis-server/**'
+      - '.github/workflows/launcher-exe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launcher-exe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: launcher
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Bundle the current mod
+        run: node scripts/bundle-mod.mjs
+
+      - name: Build UI
+        run: npm run build
+
+      - name: Build Windows exe
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npx electron-builder --win nsis portable --publish never
+
+      - name: Upload exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: festvisuals-launcher-exe
+          path: |
+            launcher/release/*.exe
+          retention-days: 14
+          if-no-files-found: error

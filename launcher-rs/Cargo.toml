@@ -1,0 +1,20 @@
+[package]
+name = "festvisuals"
+version = "1.0.0"
+edition = "2021"
+description = "FestVisuals — лаунчер клиента 26.2"
+license = "MIT"
+
+[[bin]]
+name = "festvisuals"
+path = "src/main.rs"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+opt-level = 2
+strip = "symbols"
+panic = "abort"
+
+[profile.dev]
+opt-level = 1

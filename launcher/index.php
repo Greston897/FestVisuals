@@ -4,13 +4,8 @@ $current_page = isset($_GET['page']) ? $_GET['page'] : 'home';
 // Version data that was previously in React state
 $versions = [
     [
-        'version' => '1.16.5',
-        'image' => '/lovable-uploads/56a1dbc0-6d39-4a3d-a3b7-db5709458e52.png',
-        'title' => 'Клиент'
-    ],
-    [
-        'version' => 'ALPHA 1.16.5',
-        'image' => '/lovable-uploads/8c67bf3c-a7cb-4f10-a5e9-e08bd756620a.png',
+        'version' => '26.2',
+        'image' => 'versions/26.2.jpg',
         'title' => 'Клиент'
     ]
 ];

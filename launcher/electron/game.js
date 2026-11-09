@@ -377,7 +377,11 @@ export async function launchGame({ version, root: requestedRoot, ram, username, 
 
   const versionJson = await ensureVersionJson(root, version);
   const javaComponent = (versionJson.javaVersion && versionJson.javaVersion.component) || 'jre-legacy';
-  const festvisualsJar = cfg.festvisuals ? await latestFestVisuals(root, bundledJar, progress) : null;
+  const warm = verifiedRecently(root);
+  const cachedFest = path.join(root, 'cache', 'festvisuals', 'festvisuals.jar');
+  // A warm install skips the feed and the jar walk. The first launch still checks everything.
+  const festvisualsJar = !cfg.festvisuals ? null
+    : (warm && fs.existsSync(cachedFest) ? cachedFest : await latestFestVisuals(root, bundledJar, progress));
 
   const [javaPath] = await Promise.all([
     ensureJava(root, javaComponent, progress),
@@ -385,8 +389,9 @@ export async function launchGame({ version, root: requestedRoot, ram, username, 
     ensureMods(gameDir, version, { festvisualsJar, progress, vulkan }),
   ]);
 
-  // Drop any half-downloaded jar from a previous run so the verify/download below replaces it.
-  removeCorruptJars(root);
+  // A warm install already proved the jars. Walking them again is the slow part of a repeat launch.
+  if (!warm) removeCorruptJars(root);
+  else progress('instant', 100);
 
   const launcher = new Client();
   let windowOpen = false;

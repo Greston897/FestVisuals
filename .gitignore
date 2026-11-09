@@ -45,6 +45,11 @@ launcher/node_modules/
 launcher/dist/
 launcher/target/
 launcher/*.log
+launcher-rs/target/
+launcher-rs/assets/banner-*
+launcher-rs/assets/backdrop.rgba
+launcher/public/banners/
+image-search/
 
 # site (node build outputs)
 

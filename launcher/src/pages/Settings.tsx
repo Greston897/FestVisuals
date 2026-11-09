@@ -1,196 +1,179 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useEffect, useState } from "react";
+import { Folder, HardDrive, Monitor } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { Folder, HardDrive, Monitor, Settings as SettingsIcon } from "lucide-react";
 import { gameDir as savedGameDir, totalRamMb } from "@/lib/gameDir";
+import { electron, nodeRequire } from "@/lib/desktop";
+import { GlassPanel } from "@/components/Glass";
 
 const Settings = () => {
-  // Load settings from localStorage or use defaults
   const maxRam = totalRamMb();
-  const [ram, setRam] = useState(() => Math.min(Number(localStorage.getItem('settings_ram')) || 4096, maxRam));
-  const [gameDir, setGameDir] = useState(() => savedGameDir());
-  const [resW, setResW] = useState(() => localStorage.getItem('settings_res_w') || '1920');
-  const [resH, setResH] = useState(() => localStorage.getItem('settings_res_h') || '1080');
-  const [fullscreen, setFullscreen] = useState(() => localStorage.getItem('settings_fullscreen') === 'true');
-  const [vulkanEnabled, setVulkanEnabled] = useState(() => localStorage.getItem('settings_vulkan') !== 'false');
-  const [closeOnLaunch, setCloseOnLaunch] = useState(() => localStorage.getItem('settings_close_launch') === 'true');
+  const [ram, setRam] = useState(() => Math.min(Number(localStorage.getItem("settings_ram")) || 4096, maxRam));
+  const [dir, setDir] = useState(() => savedGameDir());
+  const [resW, setResW] = useState(() => localStorage.getItem("settings_res_w") || "1920");
+  const [resH, setResH] = useState(() => localStorage.getItem("settings_res_h") || "1080");
+  const [fullscreen, setFullscreen] = useState(() => localStorage.getItem("settings_fullscreen") === "true");
+  const [vulkanEnabled, setVulkanEnabled] = useState(() => localStorage.getItem("settings_vulkan") !== "false");
+  const [closeOnLaunch, setCloseOnLaunch] = useState(() => localStorage.getItem("settings_close_launch") === "true");
+  const [note, setNote] = useState<string | null>(null);
 
-  // Save settings on change
   useEffect(() => {
-    localStorage.setItem('settings_ram', String(ram));
-    localStorage.setItem('settings_dir', gameDir);
-    localStorage.setItem('settings_res_w', resW);
-    localStorage.setItem('settings_res_h', resH);
-    localStorage.setItem('settings_fullscreen', String(fullscreen));
-    localStorage.setItem('settings_close_launch', String(closeOnLaunch));
-    localStorage.setItem('settings_vulkan', String(vulkanEnabled));
-  }, [ram, gameDir, resW, resH, fullscreen, closeOnLaunch, vulkanEnabled]);
+    localStorage.setItem("settings_ram", String(ram));
+    localStorage.setItem("settings_dir", dir);
+    localStorage.setItem("settings_res_w", resW);
+    localStorage.setItem("settings_res_h", resH);
+    localStorage.setItem("settings_fullscreen", String(fullscreen));
+    localStorage.setItem("settings_close_launch", String(closeOnLaunch));
+    localStorage.setItem("settings_vulkan", String(vulkanEnabled));
+  }, [ram, dir, resW, resH, fullscreen, closeOnLaunch, vulkanEnabled]);
+
+  const openPath = (target: string) => {
+    const ipc = electron();
+    const fs = nodeRequire("fs");
+    if (!ipc || !fs) {
+      setNote("Папки открываются в приложении лаунчера");
+      return;
+    }
+    try {
+      if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
+      ipc.shell.openPath(target);
+      setNote(null);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Не удалось открыть папку");
+    }
+  };
+
+  const pct = maxRam <= 1024 ? 100 : ((ram - 1024) / (maxRam - 1024)) * 100;
+  const gb = ram / 1024;
 
   return (
-    <div className="w-full h-full p-6 overflow-y-auto">
-      <div className="max-w-4xl mx-auto space-y-6">
-        
-        <div className="flex items-center gap-3 mb-8">
-          <SettingsIcon size={28} className="text-primary" />
-          <h1 className="text-2xl font-bold">Настройки лаунчера</h1>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* RAM Settings */}
-          <div className="bg-background/50 border border-border p-6 rounded-2xl shadow-sm">
-            <div className="flex items-center gap-3 mb-2">
-              <HardDrive className="text-primary" size={20} />
-              <h2 className="text-lg font-bold uppercase tracking-wider">Выделение ОЗУ</h2>
-            </div>
-            <p className="text-sm text-muted-foreground mb-6">
-              Укажите объем оперативной памяти, который будет доступен для игры.
-            </p>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-sm font-bold text-white mb-2">
-                <span>1024 MB</span>
-                <span className="text-primary">{ram} MB</span>
-                <span>{maxRam} MB</span>
-              </div>
-              <input
-                type="range"
-                min="1024"
-                max={maxRam}
-                step="512"
-                value={ram}
-                onChange={(e) => setRam(Number(e.target.value))}
-                className="w-full accent-primary h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
-              />
-              <div className="flex justify-between gap-4 mt-4">
-                <Input
-                  type="number"
-                  min={1024}
-                  max={maxRam}
-                  value={ram}
-                  onChange={(e) => setRam(Math.max(1024, Math.min(maxRam, Number(e.target.value))))}
-                  className="bg-secondary/50 border-border text-center font-mono"
-                />
-              </div>
-            </div>
+    <div className="sheet settings-page">
+      <header className="sheet-head">
+        <p className="eyebrow">Клиент 26.2</p>
+        <h1>Настройки</h1>
+        <p>Память, окно и папка игры. Моды, миры и конфиги лежат в instances/26.2.</p>
+      </header>
+
+      {note && (
+        <button type="button" className="err-note sheet-note" onClick={() => setNote(null)}>
+          {note}
+        </button>
+      )}
+
+      <div className="sheet-grid">
+        <GlassPanel className="panel">
+          <div className="panel-title">
+            <HardDrive size={18} />
+            <h2>Память</h2>
+            <strong className="ember">{Number.isInteger(gb) ? `${gb} ГБ` : `${ram} МБ`}</strong>
           </div>
-          
-          {/* Game Directory */}
-          <div className="bg-background/50 border border-border p-6 rounded-2xl shadow-sm">
-            <div className="flex items-center gap-3 mb-2">
-              <Folder className="text-primary" size={20} />
-              <h2 className="text-lg font-bold uppercase tracking-wider">Директория игры</h2>
-            </div>
-            <p className="text-sm text-muted-foreground mb-6">
-              Сюда скачиваются ресурсы игры. У каждой версии своя подпапка в instances — с модами, настройками и мирами.
-            </p>
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <Input 
-                  value={gameDir} 
-                  onChange={(e) => setGameDir(e.target.value)}
-                  className="bg-secondary/50 border-border font-mono text-sm" 
-                />
-              </div>
-              <div className="flex gap-4">
-                <Button 
-                  variant="secondary" 
-                  className="w-full flex items-center justify-center gap-2 hover:bg-primary/20 hover:text-primary transition-colors"
-                  onClick={() => {
-                    const electron = (window as any).require('electron');
-                    const fs = (window as any).require('fs');
-                    try {
-                      if (!fs.existsSync(gameDir)) fs.mkdirSync(gameDir, { recursive: true });
-                      if (electron) electron.shell.openPath(gameDir);
-                    } catch(e) { console.error("Error opening dir:", e); }
-                  }}
-                >
-                  <Folder size={16} />
-                  Папка игры
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  className="w-full flex items-center justify-center gap-2 hover:bg-primary/20 hover:text-primary transition-colors"
-                  onClick={() => {
-                    const electron = (window as any).require('electron');
-                    const fs = (window as any).require('fs');
-                    const path = (window as any).require('path');
-                    try {
-                      const instances = path.join(gameDir, 'instances');
-                      if (!fs.existsSync(instances)) fs.mkdirSync(instances, { recursive: true });
-                      if (electron) electron.shell.openPath(instances);
-                    } catch(e) { console.error("Error opening instances:", e); }
-                  }}
-                >
-                  <Folder size={16} />
-                  Папки версий
-                </Button>
-              </div>
-            </div>
+          <p className="hint">Сколько оперативной памяти отдать игре. Верхняя граница — память этого компьютера.</p>
+          <div className="range-labels">
+            <span>1 ГБ</span>
+            <span>{Math.round(maxRam / 1024)} ГБ</span>
           </div>
-          
-          {/* Resolution */}
-          <div className="bg-background/50 border border-border p-6 rounded-2xl shadow-sm">
-            <div className="flex items-center gap-3 mb-2">
-              <Monitor className="text-primary" size={20} />
-              <h2 className="text-lg font-bold uppercase tracking-wider">Разрешение экрана</h2>
-            </div>
-            <p className="text-sm text-muted-foreground mb-6">
-              Настройте разрешение окна при запуске игры.
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground font-bold uppercase mb-1 block">Ширина</label>
-                <Input 
-                  type="number" 
-                  value={resW} 
-                  onChange={(e) => setResW(e.target.value)}
-                  className="bg-secondary/50 border-border font-mono" 
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground font-bold uppercase mb-1 block">Высота</label>
-                <Input 
-                  type="number" 
-                  value={resH} 
-                  onChange={(e) => setResH(e.target.value)}
-                  className="bg-secondary/50 border-border font-mono" 
-                />
-              </div>
-            </div>
+          <input
+            className="liquid"
+            type="range"
+            min={1024}
+            max={maxRam}
+            step={512}
+            value={ram}
+            style={{ ["--p" as string]: `${pct}%` }}
+            aria-label="Выделение ОЗУ"
+            onChange={(event) => setRam(Number(event.target.value))}
+          />
+          <label className="field-line">
+            <span>Точно, МБ</span>
+            <input
+              className="field field-num"
+              type="number"
+              min={1024}
+              max={maxRam}
+              value={ram}
+              onChange={(event) => setRam(Math.max(1024, Math.min(maxRam, Number(event.target.value) || 1024)))}
+            />
+          </label>
+        </GlassPanel>
+
+        <GlassPanel className="panel">
+          <div className="panel-title">
+            <Folder size={18} />
+            <h2>Папка игры</h2>
           </div>
-          
-          {/* Other Settings */}
-          <div className="bg-background/50 border border-border p-6 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold uppercase tracking-wider mb-2">Дополнительно</h2>
-            <div className="space-y-4 mt-6">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Полноэкранный режим</span>
-                <Switch 
-                  checked={fullscreen} 
-                  onCheckedChange={setFullscreen} 
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Закрывать лаунчер при запуске</span>
-                <Switch
-                  checked={closeOnLaunch}
-                  onCheckedChange={setCloseOnLaunch}
-                />
-              </div>
-              {/* The Vulkan renderer swap is not wired up yet: shown, but locked until it is. */}
-              <div className="flex items-center justify-between opacity-50">
-                <span className="text-sm font-medium">Vulkan Mod (заменяет Sodium) — скоро</span>
-                <Switch
-                  checked={vulkanEnabled}
-                  onCheckedChange={setVulkanEnabled}
-                  disabled
-                />
-              </div>
-            </div>
+          <p className="hint">Сюда скачиваются общие ресурсы. У клиента своя папка instances/26.2 — моды, миры, настройки.</p>
+          <input className="field" value={dir} spellCheck={false} onChange={(event) => setDir(event.target.value)} />
+          <div className="btn-row">
+            <button type="button" className="gel gel-ghost" onClick={() => openPath(dir)}>
+              Папка игры
+            </button>
+            <button
+              type="button"
+              className="gel gel-ghost"
+              onClick={() => {
+                const path = nodeRequire("path");
+                if (!path) {
+                  setNote("Папки открываются в приложении лаунчера");
+                  return;
+                }
+                openPath(path.join(dir, "instances", "26.2"));
+              }}
+            >
+              Папка 26.2
+            </button>
           </div>
-          
-        </div>
+        </GlassPanel>
+
+        <GlassPanel className="panel">
+          <div className="panel-title">
+            <Monitor size={18} />
+            <h2>Окно</h2>
+          </div>
+          <p className="hint">Размер окна при запуске. В полноэкранном режиме эти числа не используются.</p>
+          <div className="res-row">
+            <label>
+              <span>Ширина</span>
+              <input className="field" type="number" min={640} max={7680} value={resW} onChange={(event) => setResW(event.target.value)} />
+            </label>
+            <label>
+              <span>Высота</span>
+              <input className="field" type="number" min={480} max={4320} value={resH} onChange={(event) => setResH(event.target.value)} />
+            </label>
+          </div>
+          <div className="presets">
+            {[["1280", "720"], ["1600", "900"], ["1920", "1080"]].map(([w, h]) => (
+              <button key={w} type="button" className="preset" onClick={() => { setResW(w); setResH(h); }}>
+                {w}×{h}
+              </button>
+            ))}
+          </div>
+        </GlassPanel>
+
+        <GlassPanel className="panel">
+          <div className="panel-title">
+            <h2>Дополнительно</h2>
+          </div>
+          <div className="toggle-row">
+            <div>
+              <strong>Полный экран</strong>
+              <span>Запускать игру на весь монитор</span>
+            </div>
+            <Switch checked={fullscreen} onCheckedChange={setFullscreen} />
+          </div>
+          <div className="toggle-row">
+            <div>
+              <strong>Закрывать лаунчер</strong>
+              <span>Прятать окно, когда игра уже запущена</span>
+            </div>
+            <Switch checked={closeOnLaunch} onCheckedChange={setCloseOnLaunch} />
+          </div>
+          <div className="toggle-row is-locked">
+            <div>
+              <strong>Vulkan</strong>
+              <span>Замена Sodium — появится позже, переключатель пока закрыт</span>
+            </div>
+            <Switch checked={vulkanEnabled} onCheckedChange={setVulkanEnabled} disabled />
+          </div>
+        </GlassPanel>
       </div>
     </div>
   );

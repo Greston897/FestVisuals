@@ -1,41 +1,45 @@
 import { useEffect, useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
+import { electron } from "@/lib/desktop";
+import { GlassFx } from "./Glass";
 
 type UpdateState = { state: "idle" | "downloading" | "ready"; version?: string; percent?: number };
 
-const electron = (window as any).require ? (window as any).require("electron") : null;
-
-/** Thin bar shown while the launcher downloads and installs a new version of itself. */
+/** Floating glass pill while the launcher replaces itself. */
 const UpdateBanner = () => {
   const [update, setUpdate] = useState<UpdateState>({ state: "idle" });
 
   useEffect(() => {
-    if (!electron) return;
+    const ipc = electron()?.ipcRenderer;
+    if (!ipc) return;
     const onUpdate = (_: unknown, next: UpdateState) =>
       setUpdate((current) => ({ ...current, ...next, version: next.version || current.version }));
-    electron.ipcRenderer.on("updater", onUpdate);
-    return () => electron.ipcRenderer.removeListener("updater", onUpdate);
+    ipc.on("updater", onUpdate);
+    return () => ipc.removeListener("updater", onUpdate);
   }, []);
 
   if (update.state === "idle") return null;
 
   return (
-    <div className="flex items-center gap-3 border-b border-border bg-primary/15 px-4 py-2 text-xs font-semibold text-white">
-      {update.state === "downloading" ? (
-        <>
-          <Download size={14} className="animate-bounce text-primary" />
-          <span>Обновление лаунчера{update.version ? ` до ${update.version}` : ""}…</span>
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
-            <div className="h-full bg-primary transition-all duration-300" style={{ width: `${update.percent ?? 0}%` }} />
-          </div>
-          <span className="w-10 text-right">{update.percent ?? 0}%</span>
-        </>
-      ) : (
-        <>
-          <RefreshCw size={14} className="animate-spin text-primary" />
-          <span>Обновление {update.version} готово — перезапускаю лаунчер…</span>
-        </>
-      )}
+    <div className="update-float" role="status">
+      <div className="update-pill glass">
+        <GlassFx />
+        {update.state === "downloading" ? (
+          <>
+            <Download size={14} className="spin-soft" />
+            <span>Обновление{update.version ? ` ${update.version}` : ""}</span>
+            <div className="update-track">
+              <div style={{ width: `${update.percent ?? 0}%` }} />
+            </div>
+            <span className="update-pct">{update.percent ?? 0}%</span>
+          </>
+        ) : (
+          <>
+            <RefreshCw size={14} className="spin" />
+            <span>Обновление {update.version} готово — перезапускаю</span>
+          </>
+        )}
+      </div>
     </div>
   );
 };
