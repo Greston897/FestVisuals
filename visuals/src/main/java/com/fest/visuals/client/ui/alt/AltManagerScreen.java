@@ -89,7 +89,7 @@ public class AltManagerScreen extends Screen {
         int listHeight = 140;
 
         FestRenderer.withBackdrop(() -> MainMenuTheme.glass(RenderUtil.matrices(), listX, listY, listWidth, listHeight,
-                10f, new Color(16, 12, 18, 230), 0.26f, 1f));
+                10f, new Color(4, 4, 6, 235), 0.58f, 1f));
 
         List<String> alts = AltConfig.getAlts();
         double maxScroll = Math.max(0, alts.size() * 20 - listHeight + 4);

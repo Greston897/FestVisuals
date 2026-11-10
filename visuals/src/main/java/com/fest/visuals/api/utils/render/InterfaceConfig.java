@@ -11,8 +11,8 @@ public class InterfaceConfig {
     /** Multiplier applied on top of the resolution-derived overlay scale. */
     public float getScale() { return 0.9f; }
 
-    /** Tint mixed over the liquid-glass lens. Lower leaves more of the scene visible. */
-    public float getGlassy() { return 0.32f; }
+    /** Dark veil over the Kawase lens. Low enough that the frost still reads. */
+    public float getGlassy() { return 0.58f; }
 
     /** Kawase down/up sample passes. More passes widen the blur at some GPU cost. */
     public int getPasses() { return 3; }

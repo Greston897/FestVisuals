@@ -36,6 +36,7 @@ public class FestPipelines {
     public final RenderPipeline TEXT = TEXT_32;
 
     public final RenderPipeline BLUR_DOWNSCALE = fullscreen("blur_downscale", "post/blur/downscale");
+    public final RenderPipeline MENU_COVER = fullscreen("menu_cover", "post/cover");
     public final RenderPipeline BLUR_UPSCALE = fullscreen("blur_upscale", "post/blur/upscale");
     public final RenderPipeline MOTION_BLUR = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.POST_PROCESSING_SNIPPET)
             .withLocation(id("pipeline/motion_blur"))

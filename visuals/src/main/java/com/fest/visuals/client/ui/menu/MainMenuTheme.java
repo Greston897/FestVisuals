@@ -13,10 +13,12 @@ import java.util.Locale;
 import java.util.Map;
 
 import com.fest.visuals.api.utils.color.ColorUtil;
+import com.fest.visuals.api.utils.render.KawaseBlurProgram;
 import com.fest.visuals.api.utils.render.RenderUtil;
 import com.fest.visuals.api.utils.render.fonts.Fonts;
 import com.fest.visuals.api.utils.render.fonts.Icons;
 import com.fest.visuals.api.utils.render.pipeline.FestRenderer;
+import com.fest.visuals.api.utils.render.pipeline.FestTextures;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -117,21 +119,29 @@ public class MainMenuTheme {
     // ---------------------------------------------------------------- background
 
     /**
-     * Wallpaper plus the design's amber warmth and vignette. Drawn into the backdrop queue so it
-     * lands under everything the screen puts on top.
+     * Builds the menu Kawase once from the wallpaper. Panels then sample that blur, the same
+     * targets the in-world glass uses, instead of a sharp crop.
      */
-    /** Liquid glass over the wallpaper, the same lens the launcher uses on its plates. */
-    public void glass(PoseStack matrixStack, float x, float y, float w, float h, float radius, Color tint, float mix, float strength) {
+    public void prepareGlassBlur() {
         Window window = Minecraft.getInstance().getWindow();
         float screenW = Math.max(1f, window.getGuiScaledWidth());
         float screenH = Math.max(1f, window.getGuiScaledHeight());
         float scale = Math.max(screenW / BG_WIDTH, screenH / BG_HEIGHT);
         float visibleU = screenW / (BG_WIDTH * scale);
         float visibleV = screenH / (BG_HEIGHT * scale);
-        RenderUtil.BLUR_RECT.drawScene(matrixStack, x, y, w, h, radius, tint, mix, strength, BACKGROUND,
+        KawaseBlurProgram.renderMenu(FestTextures.view(BACKGROUND),
                 (1f - visibleU) / 2f, (1f - visibleV) / 2f, visibleU, visibleV);
     }
 
+    /** Dark liquid glass over the cached menu blur. */
+    public void glass(PoseStack matrixStack, float x, float y, float w, float h, float radius, Color tint, float mix, float strength) {
+        RenderUtil.BLUR_RECT.draw(matrixStack, x, y, w, h, radius, tint, mix);
+    }
+
+    /**
+     * Wallpaper plus the design's amber warmth and vignette. Drawn into the backdrop queue so it
+     * lands under everything the screen puts on top.
+     */
     public void renderBackground(PoseStack matrixStack, float width, float height, int scrim) {
         FestRenderer.withBackdrop(() -> {
             // Cover, not stretch: crop the overflowing axis instead of squashing the image.

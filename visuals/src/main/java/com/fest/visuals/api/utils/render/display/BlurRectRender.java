@@ -39,6 +39,13 @@ public class BlurRectRender implements QuickImports {
     public void draw(PoseStack matrixStack, float x, float y, float width, float height, Vector4f radius, Color topLeft, Color topRight, Color bottomLeft, Color bottomRight, float mix) {
         if (KawaseBlurProgram.fbos.isEmpty()) return;
 
+        // Every glass panel is the same dark lens. Callers keep their fade in the alpha.
+        topLeft = ink(topLeft);
+        topRight = ink(topRight);
+        bottomLeft = ink(bottomLeft);
+        bottomRight = ink(bottomRight);
+        mix = 0.58f;
+
         float[] tl = ColorUtil.normalize(topLeft);
         float[] bl = ColorUtil.normalize(bottomLeft);
         float[] br = ColorUtil.normalize(bottomRight);
@@ -75,7 +82,7 @@ public class BlurRectRender implements QuickImports {
 
         submit(matrix, adjustedX, adjustedY, adjustedWidth, adjustedHeight, width, height, radius,
                 uLeft, uRight, vTop, vBottom, topLeft, bottomLeft, bottomRight, topRight,
-                mix, alpha, 0.85f, 0f, fbo.getColorTextureView());
+                mix, alpha, 1f, 0f, fbo.getColorTextureView());
     }
 
     /**
@@ -121,6 +128,11 @@ public class BlurRectRender implements QuickImports {
                 tr[0], tr[1], tr[2], tr[3],
                 fade, glassTime(), strength, mode
         ));
+    }
+
+    private static Color ink(Color src) {
+        int alpha = src == null ? 255 : src.getAlpha();
+        return new Color(4, 4, 6, alpha);
     }
 
     private static float glassTime() {

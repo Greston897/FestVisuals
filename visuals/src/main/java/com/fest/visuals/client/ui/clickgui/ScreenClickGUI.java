@@ -192,22 +192,15 @@ public class ScreenClickGUI extends Screen implements QuickImports {
         float round = ClickGuiLayout.round();
         int full = (int) (net.minecraft.util.Mth.clamp(open, 0f, 1f) * 255f);
 
-        // Liquid glass: the world stays visible through the lens, the theme colour is only a veil.
+        // Dark liquid glass. The Kawase frost shows through; the rim carries the pour.
         RenderUtil.BLUR_RECT.draw(matrices, windowX, windowY, width, height, round,
-                ColorUtil.setAlpha(UIColors.blur(), full), 0.22f);
-
-        // Diagonal accent wash: primary at the top-left, secondary bleeding out the bottom-right.
-        Color topLeft = ColorUtil.setAlpha(UIColors.primary(), (int) (net.minecraft.util.Mth.clamp(open, 0f, 1f) * 30f));
-        Color topRight = ColorUtil.setAlpha(UIColors.primary(), (int) (net.minecraft.util.Mth.clamp(open, 0f, 1f) * 8f));
-        Color bottomLeft = ColorUtil.setAlpha(UIColors.secondary(), 0);
-        Color bottomRight = ColorUtil.setAlpha(UIColors.secondary(), (int) (net.minecraft.util.Mth.clamp(open, 0f, 1f) * 22f));
-        RenderUtil.GRADIENT_RECT.draw(matrices, windowX, windowY, width, height, round, topLeft, topRight, bottomLeft, bottomRight);
+                new Color(4, 4, 6, full));
 
         // Top hairline, brightest in the middle, that draws itself outwards as the window opens.
         float edge = ClickGuiLayout.scaled(0.6f);
         float sweep = width * Easing.EXPO_OUT.apply(open);
-        Color line = ColorUtil.setAlpha(UIColors.primary(), (int) (net.minecraft.util.Mth.clamp(open, 0f, 1f) * 110f));
-        Color fade = ColorUtil.setAlpha(UIColors.primary(), 0);
+        Color line = ColorUtil.setAlpha(Color.WHITE, (int) (net.minecraft.util.Mth.clamp(open, 0f, 1f) * 70f));
+        Color fade = ColorUtil.setAlpha(Color.WHITE, 0);
         RenderUtil.GRADIENT_RECT.draw(matrices, windowX + (width - sweep) / 2f, windowY, sweep, edge, 0f, fade, fade, line, line);
 
         topBar.render(matrices, windowX, windowY, open, tab, mouseX, mouseY);

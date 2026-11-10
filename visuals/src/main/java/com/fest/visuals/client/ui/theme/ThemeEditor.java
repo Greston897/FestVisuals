@@ -140,7 +140,7 @@ public class ThemeEditor extends UIComponent {
 
         PoseStack matrixStack = RenderUtil.matrices();
 
-        RenderUtil.RECT.draw(matrixStack, getX(), getY(), getWidth(), getHeight(), round, UIColors.blur(alphaAnim()));
+        RenderUtil.BLUR_RECT.draw(matrixStack, getX(), getY(), getWidth(), getHeight(), round, UIColors.blur(alphaAnim()));
         Fonts.PS_BOLD.drawGradientText(matrixStack, text, getX() + getWidth() / 2f - textWidth / 2f, getY() + headerHeight / 2f - headerFontSize / 2f, headerFontSize, UIColors.primary(alphaAnim()), UIColors.secondary(alphaAnim()), Fonts.PS_BOLD.getWidth(text, headerFontSize) / 4f);
 
         placeRender(context, mouseX, mouseY, delta);
