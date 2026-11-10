@@ -1,10 +1,8 @@
 //! HTTP client for the launcher.
 //!
-//! TLS is libssl (OpenSSL 3), which is present on the desktops this ships to
-//! and is the only TLS stack reachable from the build sandbox — crates.io is
-//! blocked there. The dynamic loader is used so the binary still starts, and
-//! reports a clear error, on a machine without libssl. Bodies may be gzip or
-//! deflate; those are inflated with puff (Mark Adler, public domain).
+//! Linux uses libssl (OpenSSL 3) loaded at runtime. Windows uses WinHTTP and the
+//! system certificate store. Bodies may be gzip or deflate; those are inflated
+//! with puff (Mark Adler, public domain).
 
 use std::ffi::CString;
 use std::io::{Read, Write};
@@ -96,6 +94,10 @@ pub fn download(url: &str, dest: &std::path::Path, progress: &mut dyn FnMut(Prog
 }
 
 fn transact(method: &str, url: &str, extra: &[(&str, &str)], body: Option<&[u8]>) -> Result<Response> {
+    #[cfg(windows)]
+    { return winhttp::transact(method, url, extra, body); }
+    #[cfg(not(windows))]
+    {
     let parts = parse_url(url)?;
     let mut stream = connect(&parts)?;
     let ssl = if parts.tls { Some(tls::connect(&mut stream, &parts.host)?) } else { None };
@@ -144,6 +146,7 @@ fn transact(method: &str, url: &str, extra: &[(&str, &str)], body: Option<&[u8]>
         payload = decode_body(encoding, &payload)?;
     }
     Ok(Response { status, headers, body: payload, final_url: url.to_string() })
+    }
 }
 
 fn parse_head(raw: &[u8]) -> Result<(u16, Vec<(String, String)>, usize)> {
@@ -227,6 +230,7 @@ fn resolve(base: &str, location: &str) -> String {
     format!("{origin}{dir}/{location}")
 }
 
+#[cfg(not(windows))]
 fn connect(parts: &UrlParts) -> Result<TcpStream> {
     let mut last = None;
     for addr in (parts.host.as_str(), parts.port).to_socket_addrs()? {
@@ -308,6 +312,7 @@ pub mod inflate {
 
 // ---------------------------------------------------------------- TLS via libssl
 
+#[cfg(not(windows))]
 mod tls {
     use super::*;
 
@@ -752,5 +757,168 @@ mod tests {
         let value = json::parse(r#"{"a":[1,{"b":"ok"}],"c":true}"#).unwrap();
         assert_eq!(value.get("a").unwrap().as_array().unwrap()[1].get("b").unwrap().as_str(), Some("ok"));
         assert_eq!(value.get("c").unwrap().as_bool(), Some(true));
+    }
+}
+
+#[cfg(windows)]
+mod winhttp {
+    use super::{decode_body, parse_url, HttpError, Response, Result, UA};
+
+    type HINTERNET = *mut std::ffi::c_void;
+
+    const ACCESS_AUTOMATIC: u32 = 4;
+    const ACCESS_DEFAULT: u32 = 0;
+    const FLAG_SECURE: u32 = 0x0080_0000;
+    const QUERY_STATUS_CODE: u32 = 19;
+    const QUERY_RAW_HEADERS_CRLF: u32 = 22;
+    const QUERY_FLAG_NUMBER: u32 = 0x2000_0000;
+    const ERROR_INSUFFICIENT_BUFFER: u32 = 122;
+
+    struct Handle(HINTERNET);
+    impl Drop for Handle {
+        fn drop(&mut self) {
+            if !self.0.is_null() {
+                unsafe { WinHttpCloseHandle(self.0); }
+            }
+        }
+    }
+
+    pub fn transact(method: &str, url: &str, extra: &[(&str, &str)], body: Option<&[u8]>) -> Result<Response> {
+        let parts = parse_url(url)?;
+        let agent = wide(UA);
+        let session = unsafe {
+            let automatic = WinHttpOpen(agent.as_ptr(), ACCESS_AUTOMATIC, std::ptr::null(), std::ptr::null(), 0);
+            if !automatic.is_null() { automatic } else { WinHttpOpen(agent.as_ptr(), ACCESS_DEFAULT, std::ptr::null(), std::ptr::null(), 0) }
+        };
+        if session.is_null() { return Err(last("WinHTTP не открыл сессию")); }
+        let session = Handle(session);
+        unsafe { WinHttpSetTimeouts(session.0, 10_000, 20_000, 60_000, 180_000); }
+
+        let host = wide(&parts.host);
+        let connect = unsafe { WinHttpConnect(session.0, host.as_ptr(), parts.port, 0) };
+        if connect.is_null() { return Err(last("нет соединения")); }
+        let connect = Handle(connect);
+
+        let object = if parts.query.is_empty() { parts.path.clone() } else { format!("{}?{}", parts.path, parts.query) };
+        let verb = wide(method);
+        let object = wide(&object);
+        let flags = if parts.tls { FLAG_SECURE } else { 0 };
+        let request = unsafe {
+            WinHttpOpenRequest(connect.0, verb.as_ptr(), object.as_ptr(), std::ptr::null(), std::ptr::null(), std::ptr::null(), flags)
+        };
+        if request.is_null() { return Err(last("не удалось открыть запрос")); }
+        let request = Handle(request);
+
+        let mut header = String::from("Accept: */*\r\nAccept-Encoding: gzip, deflate\r\n");
+        for (key, value) in extra {
+            header.push_str(&format!("{key}: {value}\r\n"));
+        }
+        let header = wide(&header);
+        let (body_ptr, body_len) = match body {
+            Some(bytes) => (bytes.as_ptr() as *const std::ffi::c_void, bytes.len() as u32),
+            None => (std::ptr::null(), 0),
+        };
+        let sent = unsafe {
+            WinHttpSendRequest(request.0, header.as_ptr(), 0xffff_ffff, body_ptr, body_len, body_len, 0)
+        };
+        if sent == 0 { return Err(last("запрос не ушёл")); }
+        if unsafe { WinHttpReceiveResponse(request.0, std::ptr::null_mut()) } == 0 {
+            return Err(last("нет ответа"));
+        }
+
+        let mut status = 0u32;
+        let mut status_len = 4u32;
+        let ok = unsafe {
+            WinHttpQueryHeaders(
+                request.0,
+                QUERY_STATUS_CODE | QUERY_FLAG_NUMBER,
+                name_by_index(),
+                &mut status as *mut u32 as *mut std::ffi::c_void,
+                &mut status_len,
+                std::ptr::null_mut(),
+            )
+        };
+        if ok == 0 { return Err(last("нет кода ответа")); }
+
+        let headers = query_headers(request.0)?;
+        let mut payload = read_body(request.0)?;
+        if let Some((_, encoding)) = headers.iter().find(|(k, _)| k.eq_ignore_ascii_case("content-encoding")) {
+            payload = decode_body(encoding, &payload)?;
+        }
+        Ok(Response { status: status as u16, headers, body: payload, final_url: url.to_string() })
+    }
+
+    fn query_headers(request: HINTERNET) -> Result<Vec<(String, String)>> {
+        let mut bytes = 0u32;
+        let probe = unsafe {
+            WinHttpQueryHeaders(request, QUERY_RAW_HEADERS_CRLF, name_by_index(), std::ptr::null_mut(), &mut bytes, std::ptr::null_mut())
+        };
+        if probe == 0 && unsafe { GetLastError() } != ERROR_INSUFFICIENT_BUFFER {
+            return Ok(Vec::new());
+        }
+        let mut buf = vec![0u16; (bytes as usize / 2).max(1) + 1];
+        let mut bytes = (buf.len() * 2) as u32;
+        let ok = unsafe {
+            WinHttpQueryHeaders(
+                request,
+                QUERY_RAW_HEADERS_CRLF,
+                name_by_index(),
+                buf.as_mut_ptr() as *mut std::ffi::c_void,
+                &mut bytes,
+                std::ptr::null_mut(),
+            )
+        };
+        if ok == 0 { return Ok(Vec::new()); }
+        let text = String::from_utf16_lossy(&buf[..(bytes as usize / 2).min(buf.len())]);
+        let mut headers = Vec::new();
+        for line in text.split("\r\n").skip(1) {
+            if let Some((k, v)) = line.split_once(':') {
+                headers.push((k.trim().to_string(), v.trim().to_string()));
+            }
+        }
+        Ok(headers)
+    }
+
+    fn read_body(request: HINTERNET) -> Result<Vec<u8>> {
+        let mut out = Vec::new();
+        let mut chunk = vec![0u8; 64 * 1024];
+        loop {
+            let mut read = 0u32;
+            let ok = unsafe { WinHttpReadData(request, chunk.as_mut_ptr() as *mut std::ffi::c_void, chunk.len() as u32, &mut read) };
+            if ok == 0 { return Err(last("обрыв загрузки")); }
+            if read == 0 { break; }
+            out.extend_from_slice(&chunk[..read as usize]);
+        }
+        Ok(out)
+    }
+
+    fn last(what: &str) -> HttpError {
+        HttpError(format!("{what} (WinHTTP {})", unsafe { GetLastError() }))
+    }
+
+    fn wide(text: &str) -> Vec<u16> {
+        text.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+
+    fn name_by_index() -> *const u16 {
+        !0usize as *const u16
+    }
+
+    #[link(name = "winhttp")]
+    extern "system" {
+        fn WinHttpOpen(agent: *const u16, access: u32, proxy: *const u16, bypass: *const u16, flags: u32) -> HINTERNET;
+        fn WinHttpConnect(session: HINTERNET, server: *const u16, port: u16, reserved: u32) -> HINTERNET;
+        fn WinHttpOpenRequest(connect: HINTERNET, verb: *const u16, object: *const u16, version: *const u16, referrer: *const u16, accept: *const *const u16, flags: u32) -> HINTERNET;
+        fn WinHttpSendRequest(request: HINTERNET, headers: *const u16, headers_len: u32, optional: *const std::ffi::c_void, optional_len: u32, total: u32, context: usize) -> i32;
+        fn WinHttpReceiveResponse(request: HINTERNET, reserved: *mut std::ffi::c_void) -> i32;
+        fn WinHttpQueryHeaders(request: HINTERNET, info: u32, name: *const u16, buffer: *mut std::ffi::c_void, buflen: *mut u32, index: *mut u32) -> i32;
+        fn WinHttpReadData(request: HINTERNET, buffer: *mut std::ffi::c_void, to_read: u32, read: *mut u32) -> i32;
+        fn WinHttpCloseHandle(handle: HINTERNET) -> i32;
+        fn WinHttpSetTimeouts(session: HINTERNET, resolve: i32, connect: i32, send: i32, receive: i32) -> i32;
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetLastError() -> u32;
     }
 }
