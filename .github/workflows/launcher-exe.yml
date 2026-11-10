@@ -1,14 +1,14 @@
 name: Launcher exe
 
-# Builds one portable Windows exe and publishes it on this repo's rolling "launcher" release.
-# Does not publish to Daniiltoptl/FestVisuals-Releases — that stays on main in launcher.yml.
+# Builds the Rust Windows launcher and publishes FestVisuals.exe on the rolling "launcher" release.
+# The Electron app is gone. This does not publish to Daniiltoptl/FestVisuals-Releases.
 
 on:
   push:
     branches:
       - arena/f4911e93-festvisuals
     paths:
-      - 'launcher/**'
+      - 'launcher-rs/**'
       - 'jarvis-server/**'
       - '.github/workflows/launcher-exe.yml'
   workflow_dispatch:
@@ -23,65 +23,60 @@ concurrency:
 jobs:
   exe:
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: launcher
-        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: launcher/package-lock.json
+      - name: Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Install
-        run: npm ci
-
-      - name: Build UI
-        run: npm run build
-
-      - name: Build Windows exe
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npx electron-builder --win portable --publish never
+      - name: Build launcher
+        shell: cmd
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VS=%%i
+          call "%VS%\VC\Auxiliary\Build\vcvars64.bat"
+          git clone --depth 1 --branch VER-2-13-3 https://github.com/freetype/freetype.git "%RUNNER_TEMP%\freetype-src"
+          cmake -S "%RUNNER_TEMP%\freetype-src" -B "%RUNNER_TEMP%\freetype-build" -A x64 -DBUILD_SHARED_LIBS=OFF -DFT_DISABLE_ZLIB=TRUE -DFT_DISABLE_BZIP2=TRUE -DFT_DISABLE_PNG=TRUE -DFT_DISABLE_HARFBUZZ=TRUE -DFT_DISABLE_BROTLI=TRUE -DCMAKE_BUILD_TYPE=Release
+          if errorlevel 1 exit /b 1
+          cmake --build "%RUNNER_TEMP%\freetype-build" --config Release
+          if errorlevel 1 exit /b 1
+          set FREETYPE_INCLUDE=%RUNNER_TEMP%\freetype-build\include;%RUNNER_TEMP%\freetype-src\include
+          for /f "delims=" %%i in ('dir /s /b "%RUNNER_TEMP%\freetype-build\freetype.lib"') do set FREETYPE_LIB=%%i
+          for %%i in ("%FREETYPE_LIB%") do set FREETYPE_LIB_DIR=%%~dpinose
+          set FREETYPE_LIB_DIR=%FREETYPE_LIB_DIR:~0,-4%
+          echo FREETYPE_LIB=%FREETYPE_LIB%
+          echo FREETYPE_LIB_DIR=%FREETYPE_LIB_DIR%
+          cargo build --release --manifest-path launcher-rs\Cargo.toml
+          if errorlevel 1 exit /b 1
+          copy /Y launcher-rs\target\release\festvisuals.exe FestVisuals.exe
 
       - name: Publish release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          shopt -s nullglob
-          exe=(release/*.exe)
-          if [ ${#exe[@]} -ne 1 ]; then
-            echo "expected one exe, found: ${exe[*]}"
-            exit 1
-          fi
-          bytes=$(wc -c < "${exe[0]}")
-          echo "exe=${exe[0]} bytes=${bytes}"
-          # Electron's own Windows runtime is ~158 MB packed. Above 170 MB means a second copy
-          # or the mod jar slipped back in.
-          if [ "$bytes" -gt 170000000 ]; then
-            echo "exe is heavier than 170 MB"
+          bytes=$(wc -c < FestVisuals.exe)
+          echo "exe=FestVisuals.exe bytes=${bytes}"
+          if [ "$bytes" -gt 40000000 ]; then
+            echo "exe is heavier than 40 MB"
             exit 1
           fi
           notes=$(printf '%s\n' \
-            'Один portable exe для Windows, без установщика.' \
+            'Лаунчер FestVisuals на Rust. Один exe, без Electron.' \
             'Мод скачивается при первом запуске — нужен интернет.' \
             "Сборка: ${GITHUB_SHA}")
           if gh release view launcher >/dev/null 2>&1; then
-            gh release upload launcher "${exe[0]}" --clobber
+            gh release delete-asset launcher FestVisuals-Launcher-Portable-1.1.0.exe --yes || true
+            gh release upload launcher FestVisuals.exe --clobber
             gh release edit launcher --target "$GITHUB_SHA" --title "FestVisuals Launcher" --notes "$notes" --latest
           else
-            gh release create launcher "${exe[0]}" --target "$GITHUB_SHA" --title "FestVisuals Launcher" --notes "$notes" --latest
+            gh release create launcher FestVisuals.exe --target "$GITHUB_SHA" --title "FestVisuals Launcher" --notes "$notes" --latest
           fi
 
       - name: Upload exe
         uses: actions/upload-artifact@v4
         with:
           name: festvisuals-launcher-exe
-          path: launcher/release/*.exe
+          path: FestVisuals.exe
           retention-days: 14
           if-no-files-found: error

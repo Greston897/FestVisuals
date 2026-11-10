@@ -1,16 +1,25 @@
 //! FestVisuals — native launcher for the 26.2 client.
 //!
-//! Build: `cargo build --release` in this directory (needs gcc, libfreetype and,
-//! to open a window, libX11). Without a display, `festvisuals --snapshot out.png`
-//! paints one frame.
+//! Linux: `cargo build --release` (gcc, libfreetype, and libX11 to open a window).
+//! Windows: the GitHub workflow builds FreeType and links it statically.
+//! Without a display, `festvisuals --snapshot out.png` paints one frame.
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 mod engine;
 mod font;
 mod netutil;
 mod paint;
 mod ui;
-mod x11;
 mod zip;
+#[cfg(unix)]
+mod x11;
+#[cfg(windows)]
+mod win32;
+
+#[cfg(unix)]
+use x11 as host;
+#[cfg(windows)]
+use win32 as host;
 
 use std::io::{Read, Write};
 use std::sync::mpsc;
@@ -30,26 +39,39 @@ fn main() {
         let path = args.get(i + 1).map(|s| s.as_str()).unwrap_or("preview.png");
         let page = args.iter().position(|a| a == "--page").and_then(|i| args.get(i + 1)).map(|s| s.as_str()).unwrap_or("home");
         if let Err(error) = snapshot(std::path::Path::new(path), page) {
-            eprintln!("{error}");
+            report(&error);
             std::process::exit(1);
         }
         return;
     }
-    if std::env::var_os("DISPLAY").is_none() && std::env::var_os("WAYLAND_DISPLAY").is_none() {
+    if headless() {
         let path = std::path::Path::new("preview.png");
         match snapshot(path, "home") {
             Ok(()) => eprintln!("нет графической сессии, кадр записан в {}", path.display()),
             Err(error) => {
-                eprintln!("{error}");
+                report(&error);
                 std::process::exit(1);
             }
         }
         return;
     }
     if let Err(error) = run() {
-        eprintln!("{error}");
+        report(&error);
         std::process::exit(1);
     }
+}
+
+fn report(error: &str) {
+    eprintln!("{error}");
+    #[cfg(windows)]
+    host::alert(error);
+}
+
+fn headless() -> bool {
+    #[cfg(windows)]
+    { false }
+    #[cfg(not(windows))]
+    { std::env::var_os("DISPLAY").is_none() && std::env::var_os("WAYLAND_DISPLAY").is_none() }
 }
 
 fn snapshot(path: &std::path::Path, page: &str) -> Result<(), String> {
@@ -91,7 +113,7 @@ fn run() -> Result<(), String> {
         let _ = sender.send(EngineEvent::Ready(settings));
     });
 
-    let mut window = x11::Window::open("FestVisuals", WIDTH, HEIGHT)?;
+    let mut window = host::Window::open("FestVisuals", WIDTH, HEIGHT)?;
     let mut canvas = Canvas::new(WIDTH as i32, HEIGHT as i32);
     canvas.fill([7, 6, 11, 255]);
     window.present(&canvas);
@@ -110,10 +132,10 @@ fn run() -> Result<(), String> {
         }
         while let Some(ev) = window.poll() {
             match ev {
-                x11::Ev::Close => alive = false,
-                x11::Ev::Resize { w, h } => canvas.resize(w as i32, h as i32),
-                x11::Ev::Expose => {}
-                x11::Ev::Mouse { x, y, pressed } => {
+                host::Ev::Close => alive = false,
+                host::Ev::Resize { w, h } => canvas.resize(w as i32, h as i32),
+                host::Ev::Expose => {}
+                host::Ev::Mouse { x, y, pressed } => {
                     ui.pointer(x, y);
                     match pressed {
                         Some(true) => {
@@ -131,7 +153,7 @@ fn run() -> Result<(), String> {
                         None => {}
                     }
                 }
-                x11::Ev::Key { text, sym } => {
+                host::Ev::Key { text, sym } => {
                     let action = match sym {
                         0xff08 => ui.key(Key::Backspace),
                         0xff0d | 0xff8d => ui.key(Key::Enter),
@@ -172,7 +194,7 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
-fn dispatch(engine: &Arc<Engine>, ui: &mut Ui, window: &mut x11::Window, action: UiAction) {
+fn dispatch(engine: &Arc<Engine>, ui: &mut Ui, window: &mut host::Window, action: UiAction) {
     match action {
         UiAction::None => {}
         UiAction::Quit => std::process::exit(0),
@@ -185,7 +207,7 @@ fn dispatch(engine: &Arc<Engine>, ui: &mut Ui, window: &mut x11::Window, action:
         UiAction::OpenFolder => open_path(&engine.instance_dir("26.2")),
         UiAction::OpenRoot => open_path(&engine.root_dir()),
         UiAction::PickDirectory => {
-            if let Some(path) = pick(&[("--file-selection", "--directory"), ("--getexistingdirectory", "")]) {
+            if let Some(path) = pick(true) {
                 let engine = Arc::clone(engine);
                 if let Err(error) = engine.set_root(&path) {
                     ui.set_note(error);
@@ -197,7 +219,7 @@ fn dispatch(engine: &Arc<Engine>, ui: &mut Ui, window: &mut x11::Window, action:
             }
         }
         UiAction::PickAvatar => {
-            if let Some(path) = pick(&[("--file-selection", ""), ("--getopenfilename", "")]) {
+            if let Some(path) = pick(false) {
                 if let Some(saved) = engine.import_avatar(&path) {
                     ui.set_avatar(saved.clone());
                     let mut settings = engine.load_settings();
@@ -220,20 +242,30 @@ fn open_path(path: &std::path::Path) {
     let _ = std::process::Command::new("xdg-open").arg(path).spawn();
 }
 
-fn pick(flags: &[(&str, &str)]) -> Option<String> {
-    for (flag, extra) in flags {
-        let program = if flag.starts_with("--get") { "kdialog" } else { "zenity" };
-        let mut command = std::process::Command::new(program);
-        command.arg(flag);
-        if !extra.is_empty() { command.arg(extra); }
-        if let Ok(output) = command.output() {
-            if output.status.success() {
-                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path.is_empty() { return Some(path); }
+fn pick(directory: bool) -> Option<String> {
+    #[cfg(windows)]
+    { return host::pick_path(directory); }
+    #[cfg(not(windows))]
+    {
+        let attempts: &[(&str, &str)] = if directory {
+            &[("--file-selection", "--directory"), ("--getexistingdirectory", "")]
+        } else {
+            &[("--file-selection", ""), ("--getopenfilename", "")]
+        };
+        for (flag, extra) in attempts {
+            let program = if flag.starts_with("--get") { "kdialog" } else { "zenity" };
+            let mut command = std::process::Command::new(program);
+            command.arg(flag);
+            if !extra.is_empty() { command.arg(extra); }
+            if let Ok(output) = command.output() {
+                if output.status.success() {
+                    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if !path.is_empty() { return Some(path); }
+                }
             }
         }
+        None
     }
-    None
 }
 
 fn control_server(engine: Arc<Engine>) {

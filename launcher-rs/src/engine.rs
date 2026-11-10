@@ -1,6 +1,5 @@
 //! From "Играть" to a running 26.2: Java, Fabric, mods, vanilla files, then the
-//! game process. Mirrors launcher/electron/game.js so an install made by the
-//! Electron launcher is reused and the other way round.
+//! game process. An install left by an older launcher is reused.
 
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -351,7 +350,7 @@ impl Engine {
         }
         let dir = jarvis_dir();
         let Some(dir) = dir else { return };
-        let python = ["python3", "python"].into_iter().find(|bin| Command::new(bin).arg("--version").output().is_ok());
+        let python = ["python3", "python", "py"].into_iter().find(|bin| Command::new(bin).arg("--version").output().is_ok());
         let Some(python) = python else { return };
         let mut command = Command::new(python);
         command.arg("server.py").current_dir(&dir).env("JARVIS_HOST", "127.0.0.1").env("PYTHONIOENCODING", "utf-8")
@@ -385,6 +384,11 @@ fn directories_home() -> PathBuf {
 }
 
 fn config_path() -> PathBuf {
+    if cfg!(target_os = "windows") {
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            return PathBuf::from(appdata).join("FestVisuals").join("launcher.json");
+        }
+    }
     directories_home().join(".config").join("festvisuals").join("launcher.json")
 }
 
