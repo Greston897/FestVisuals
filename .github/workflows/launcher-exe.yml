@@ -31,12 +31,24 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build launcher
-        shell: cmd
+        shell: pwsh
         run: |
-          launcher-rs\ci-windows.cmd > build.log 2>&1
-          set RC=%ERRORLEVEL%
-          type build.log
-          exit /b %RC%
+          pwsh -NoProfile -File launcher-rs\ci-windows.ps1 *> build.log
+          $rc = $LASTEXITCODE
+          Get-Content build.log
+          exit $rc
+
+      - name: Note the failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if [ -f build.log ]; then
+            tail -n 80 build.log > /tmp/build-tail.txt
+            gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/comments" \
+              -f body="$(printf 'Windows build failed:\n\n```\n%s\n```' "$(cat /tmp/build-tail.txt)")"
+          fi
 
       - name: Upload build log
         if: always()
