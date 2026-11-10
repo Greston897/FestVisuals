@@ -15,6 +15,7 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.*;
 import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.resources.Identifier;
 
 public class BlurRectRender implements QuickImports {
     private static final float SMOOTHNESS = 0.8f;
@@ -72,22 +73,57 @@ public class BlurRectRender implements QuickImports {
             uLeft = uRight = vTop = vBottom = 0f;
         }
 
+        submit(matrix, adjustedX, adjustedY, adjustedWidth, adjustedHeight, width, height, radius,
+                uLeft, uRight, vTop, vBottom, topLeft, bottomLeft, bottomRight, topRight,
+                mix, alpha, 0.85f, 0f, fbo.getColorTextureView());
+    }
+
+    /**
+     * Liquid glass over a still image (the main-menu wallpaper) instead of the world blur.
+     * {@code u0,v0,uSpan,vSpan} is the cover crop used to draw that image full-screen.
+     */
+    public void drawScene(PoseStack matrixStack, float x, float y, float width, float height, float radius,
+                          Color color, float mix, float strength, Identifier scene,
+                          float u0, float v0, float uSpan, float vSpan) {
+        float screenW = Math.max(1f, mc.getWindow().getGuiScaledWidth());
+        float screenH = Math.max(1f, mc.getWindow().getGuiScaledHeight());
+        float uLeft = u0 + (x / screenW) * uSpan;
+        float uRight = u0 + ((x + width) / screenW) * uSpan;
+        float vTop = v0 + (y / screenH) * vSpan;
+        float vBottom = v0 + ((y + height) / screenH) * vSpan;
+        Matrix4f matrix = matrixStack.last().pose();
+        submit(matrix, x, y, width, height, width, height, new Vector4f(radius, radius, radius, radius),
+                uLeft, uRight, vTop, vBottom, color, color, color, color,
+                mix, color.getAlpha() / 255f, strength, 1f, FestTextures.view(scene));
+    }
+
+    private void submit(Matrix4f matrix, float x, float y, float width, float height, float shapeW, float shapeH, Vector4f radius,
+                        float uLeft, float uRight, float vTop, float vBottom,
+                        Color topLeft, Color bottomLeft, Color bottomRight, Color topRight,
+                        float mix, float fade, float strength, float mode,
+                        com.mojang.blaze3d.textures.GpuTextureView texture) {
+        float[] tl = ColorUtil.normalize(topLeft);
+        float[] bl = ColorUtil.normalize(bottomLeft);
+        float[] br = ColorUtil.normalize(bottomRight);
+        float[] tr = ColorUtil.normalize(topRight);
         FestRenderer renderer = FestRenderer.getInstance();
         BufferBuilder builder = renderer.begin(FestPipelines.BLURRED_RECT);
-
-        builder.addVertex(matrix, adjustedX, adjustedY, 0f).setUv(uLeft, vTop).setColor(topLeft.getRGB());
-        builder.addVertex(matrix, adjustedX, adjustedY + adjustedHeight, 0f).setUv(uLeft, vBottom).setColor(bottomLeft.getRGB());
-        builder.addVertex(matrix, adjustedX + adjustedWidth, adjustedY + adjustedHeight, 0f).setUv(uRight, vBottom).setColor(bottomRight.getRGB());
-        builder.addVertex(matrix, adjustedX + adjustedWidth, adjustedY, 0f).setUv(uRight, vTop).setColor(topRight.getRGB());
-
-        renderer.submit(builder, FestPipelines.BLURRED_RECT, TextureSetup.singleTexture(fbo.getColorTextureView(), FestTextures.sampler()), FestUniform.of(
+        builder.addVertex(matrix, x, y, 0f).setUv(uLeft, vTop).setColor(topLeft.getRGB());
+        builder.addVertex(matrix, x, y + height, 0f).setUv(uLeft, vBottom).setColor(bottomLeft.getRGB());
+        builder.addVertex(matrix, x + width, y + height, 0f).setUv(uRight, vBottom).setColor(bottomRight.getRGB());
+        builder.addVertex(matrix, x + width, y, 0f).setUv(uRight, vTop).setColor(topRight.getRGB());
+        renderer.submit(builder, FestPipelines.BLURRED_RECT, TextureSetup.singleTexture(texture, FestTextures.sampler()), FestUniform.of(
                 radius.x, radius.z, radius.w, radius.y,
-                width, height, SMOOTHNESS, mix,
+                shapeW, shapeH, SMOOTHNESS, mix,
                 tl[0], tl[1], tl[2], tl[3],
                 bl[0], bl[1], bl[2], bl[3],
                 br[0], br[1], br[2], br[3],
                 tr[0], tr[1], tr[2], tr[3],
-                alpha, 0f, 0f, 0f
+                fade, glassTime(), strength, mode
         ));
+    }
+
+    private static float glassTime() {
+        return (float) ((System.nanoTime() / 1_000_000_000.0) % 1000.0);
     }
 }

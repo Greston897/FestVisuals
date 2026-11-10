@@ -165,7 +165,7 @@ public class DynamicIslandWidget extends Widget {
         float x = centreX - w / 2f;
 
         if (m > 0.01f) {
-            RenderUtil.RECT.draw(matrixStack, x, y, w, h, radius, ColorUtil.setAlpha(Color.BLACK, (int) (235 * m)));
+            RenderUtil.BLUR_RECT.draw(matrixStack, x, y, w, h, radius, ColorUtil.setAlpha(Color.BLACK, (int) (235 * m)), 0.28f);
         }
 
         if (m < 0.99f) renderStatusBar(matrixStack, centreX - barW / 2f, y, barH, 1f - m);
@@ -242,7 +242,7 @@ public class DynamicIslandWidget extends Widget {
             cx += clockW + gap;
         }
 
-        RenderUtil.RECT.draw(matrixStack, cx, y, pillW, pillH, pillH / 2f, ColorUtil.setAlpha(Color.BLACK, (int) (235 * a)));
+        RenderUtil.BLUR_RECT.draw(matrixStack, cx, y, pillW, pillH, pillH / 2f, ColorUtil.setAlpha(Color.BLACK, (int) (235 * a)), 0.28f);
         float bx = cx + pad;
         McText.drawText(matrixStack, brandLeft, bx, baselineY, fontSize, textLight);
         McText.drawText(matrixStack, brandRight, bx + brandLeftW, baselineY, fontSize, accent);
@@ -554,7 +554,7 @@ public class DynamicIslandWidget extends Widget {
             float rowW = pad + iconSize + gap + labelW + (stateW > 0 ? gap + stateW : 0) + pad;
             float rowX = centreX - rowW / 2f;
 
-            RenderUtil.BLUR_RECT.draw(matrixStack, rowX, rowY, rowW, pillH, pillH / 2f, UIColors.widgetBlur(a));
+            RenderUtil.BLUR_RECT.draw(matrixStack, rowX, rowY, rowW, pillH, pillH / 2f, UIColors.widgetBlur(a), 0.28f);
 
             float iconX = rowX + pad;
             float iconY = rowY + (pillH - iconSize) / 2f;

@@ -120,6 +120,18 @@ public class MainMenuTheme {
      * Wallpaper plus the design's amber warmth and vignette. Drawn into the backdrop queue so it
      * lands under everything the screen puts on top.
      */
+    /** Liquid glass over the wallpaper, the same lens the launcher uses on its plates. */
+    public void glass(PoseStack matrixStack, float x, float y, float w, float h, float radius, Color tint, float mix, float strength) {
+        Window window = Minecraft.getInstance().getWindow();
+        float screenW = Math.max(1f, window.getGuiScaledWidth());
+        float screenH = Math.max(1f, window.getGuiScaledHeight());
+        float scale = Math.max(screenW / BG_WIDTH, screenH / BG_HEIGHT);
+        float visibleU = screenW / (BG_WIDTH * scale);
+        float visibleV = screenH / (BG_HEIGHT * scale);
+        RenderUtil.BLUR_RECT.drawScene(matrixStack, x, y, w, h, radius, tint, mix, strength, BACKGROUND,
+                (1f - visibleU) / 2f, (1f - visibleV) / 2f, visibleU, visibleV);
+    }
+
     public void renderBackground(PoseStack matrixStack, float width, float height, int scrim) {
         FestRenderer.withBackdrop(() -> {
             // Cover, not stretch: crop the overflowing axis instead of squashing the image.
@@ -190,9 +202,7 @@ public class MainMenuTheme {
         float radius = d(14f);
         float pad = d(14f);
 
-        RenderUtil.GRADIENT_RECT.draw(matrixStack, x, y, w, h, radius,
-                ColorUtil.setAlpha(new Color(20, 15, 10), 184), ColorUtil.setAlpha(new Color(20, 15, 10), 184),
-                ColorUtil.setAlpha(INK_900, 210), ColorUtil.setAlpha(INK_900, 210));
+        glass(matrixStack, x, y, w, h, radius, ColorUtil.setAlpha(new Color(20, 15, 10), 220), 0.28f, 1f);
 
         outline(matrixStack, x, y, w, h, radius, ColorUtil.setAlpha(AMBER_300, hovered ? 165 : 90), d(1f));
 
@@ -254,9 +264,9 @@ public class MainMenuTheme {
         boolean hovered = widget.isHoveredOrFocused();
         float radius = d(8f);
 
-        RenderUtil.RECT.draw(matrixStack, x, y, w, h, radius, hovered
-                ? ColorUtil.setAlpha(AMBER_300, 36)
-                : ColorUtil.setAlpha(new Color(10, 13, 24), 140));
+        glass(matrixStack, x, y, w, h, radius, hovered
+                ? ColorUtil.setAlpha(AMBER_300, 210)
+                : ColorUtil.setAlpha(new Color(10, 13, 24), 210), 0.30f, 0.7f);
 
         outline(matrixStack, x, y, w, h, radius,
                 ColorUtil.setAlpha(AMBER_300, hovered ? 155 : 82), d(1f));
@@ -301,7 +311,7 @@ public class MainMenuTheme {
         boolean hovered = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
         float progress = holdProgress(hovered);
 
-        RenderUtil.RECT.draw(matrixStack, x, y, w, h, radius, ColorUtil.setAlpha(Color.WHITE, 240));
+        glass(matrixStack, x, y, w, h, radius, ColorUtil.setAlpha(Color.WHITE, 230), 0.42f, 0.75f);
 
         // Fill sweeps across while the button is held, then the game quits.
         if (progress > 0f) {

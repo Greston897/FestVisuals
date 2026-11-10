@@ -109,8 +109,8 @@ public class ClickGuiSettingsPanel {
         int full = (int) (panelAlpha * 255f);
         float round = ClickGuiLayout.panelRound();
 
-        RenderUtil.RECT.draw(matrices, x, y, width, height, round, new Color(0, 0, 0, (int) (panelAlpha * 255f)));
-        RenderUtil.RECT.draw(matrices, x, y, width, height, round, ClickGuiLayout.body(panelAlpha));
+        RenderUtil.BLUR_RECT.draw(matrices, x, y, width, height, round,
+                ColorUtil.setAlpha(UIColors.blur(), full), 0.24f);
 
         Color tint = ColorUtil.setAlpha(UIColors.primary(), (int) (panelAlpha * 26f));
         Color clear = ColorUtil.setAlpha(UIColors.primary(), 0);

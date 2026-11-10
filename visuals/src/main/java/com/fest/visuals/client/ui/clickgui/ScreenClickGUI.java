@@ -192,11 +192,9 @@ public class ScreenClickGUI extends Screen implements QuickImports {
         float round = ClickGuiLayout.round();
         int full = (int) (net.minecraft.util.Mth.clamp(open, 0f, 1f) * 255f);
 
-        // Two passes: a flat black base that nothing can see through, then the theme colour on
-        // top of it. A theme is free to ship a translucent blur colour; the panel is not.
-        RenderUtil.RECT.draw(matrices, windowX, windowY, width, height, round,
-                new Color(0, 0, 0, (int) (net.minecraft.util.Mth.clamp(open, 0f, 1f) * 255f)));
-        RenderUtil.RECT.draw(matrices, windowX, windowY, width, height, round, ClickGuiLayout.body(open));
+        // Liquid glass: the world stays visible through the lens, the theme colour is only a veil.
+        RenderUtil.BLUR_RECT.draw(matrices, windowX, windowY, width, height, round,
+                ColorUtil.setAlpha(UIColors.blur(), full), 0.22f);
 
         // Diagonal accent wash: primary at the top-left, secondary bleeding out the bottom-right.
         Color topLeft = ColorUtil.setAlpha(UIColors.primary(), (int) (net.minecraft.util.Mth.clamp(open, 0f, 1f) * 30f));

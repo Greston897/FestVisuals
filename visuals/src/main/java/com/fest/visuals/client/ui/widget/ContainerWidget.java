@@ -75,7 +75,7 @@ public abstract class ContainerWidget extends Widget {
         width = headerWidth + getOffset() * 4f;
         height = getDefaultHeight();
 
-        RenderUtil.BLUR_RECT.draw(matrixStack, x, y, animWidth, animHeight, round, UIColors.widgetBlur(alpha));
+        RenderUtil.BLUR_RECT.draw(matrixStack, x, y, animWidth, animHeight, round, UIColors.widgetBlur(alpha), 0.22f);
         getMediumFont().drawCenteredGradientText(matrixStack, getName(), x + animWidth / 2f, y + getDefaultHeight() / 2f - headerSize / 2f, headerSize, UIColors.primary(alpha), UIColors.secondary(alpha), headerWidth / 4f);
 
         ScissorUtil.start(matrixStack, x, y, animWidth, animHeight);

@@ -68,7 +68,7 @@ public class ScoreboardWidget extends Widget {
 
         if (ScoreboardHudModule.getInstance().background.getValue()) {
             float x = draggable.getX(), y = draggable.getY(), w = vanillaWidth, h = vanillaHeight;
-            FestRenderer.withBackdrop(() -> RenderUtil.BLUR_RECT.draw(matrixStack, x, y, w, h, getGap() * 2f, UIColors.widgetBlur()));
+            FestRenderer.withBackdrop(() -> RenderUtil.BLUR_RECT.draw(matrixStack, x, y, w, h, getGap() * 2f, UIColors.widgetBlur(), 0.22f));
         }
     }
 }

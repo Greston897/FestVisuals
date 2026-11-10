@@ -1,0 +1,63 @@
+name: Visuals jar
+
+# Builds the 26.2 client and publishes festvisuals-free.jar on the rolling "mod-arena" release.
+# Does not touch main, does not bump mod_version, and does not publish to Daniiltoptl.
+
+on:
+  push:
+    branches:
+      - arena/f4911e93-festvisuals
+    paths:
+      - 'visuals/**'
+      - '.github/workflows/visuals-jar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: visuals-jar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        working-directory: visuals
+        run: |
+          chmod +x gradlew
+          ./gradlew build --stacktrace
+
+      - name: Prepare jar
+        run: |
+          set -euo pipefail
+          JAR=$(find visuals/build/libs -maxdepth 1 -iname "*.jar" ! -iname "*-sources.jar" | head -n1)
+          if [ -z "$JAR" ]; then
+            echo "no jar in visuals/build/libs" >&2
+            exit 1
+          fi
+          cp "$JAR" festvisuals-free.jar
+          ls -l festvisuals-free.jar
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view mod-arena >/dev/null 2>&1; then
+            gh release create mod-arena --title "FestVisuals 26.2" --notes "Liquid glass build from the arena branch. Drop festvisuals-free.jar into the mods folder."
+          fi
+          gh release upload mod-arena festvisuals-free.jar --clobber

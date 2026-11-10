@@ -62,7 +62,7 @@ public class InventoryWidget extends Widget {
         getDraggable().setHeight(height);
 
         FestRenderer.withBackdrop(() -> {
-            RenderUtil.BLUR_RECT.draw(matrixStack, x, y, width, height, getGap() * 2f, UIColors.widgetBlur());
+            RenderUtil.BLUR_RECT.draw(matrixStack, x, y, width, height, getGap() * 2f, UIColors.widgetBlur(), 0.22f);
 
             if (!drawSlots) return;
             for (int row = 0; row < ROWS; row++) {

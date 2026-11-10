@@ -115,7 +115,7 @@ public class TargetInfoWidget extends Widget {
         matrixStack.scale(pop, pop, 1f);
         matrixStack.translate(-(x + width / 2f), -(y + height / 2f), 0f);
 
-        RenderUtil.BLUR_RECT.draw(matrixStack, x, y, width, height, backgroundRound, UIColors.widgetBlur(fullAlpha));
+        RenderUtil.BLUR_RECT.draw(matrixStack, x, y, width, height, backgroundRound, UIColors.widgetBlur(fullAlpha), 0.22f);
 
         Color textColor = UIColors.textColor(fullAlpha);
         getMediumFont().drawWrap(matrixStack, targetName, healthBarX, nameY, width - headSize - margin, bigFontSize, textColor, scaled(9f), Duration.ofMillis(2500), Duration.ofMillis(1700));

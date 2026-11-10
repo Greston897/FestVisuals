@@ -76,7 +76,7 @@ public class ArmorWidget extends Widget {
         // background to the backdrop queue is what keeps it under the icons while still
         // sampling the same blur targets every other widget uses.
         FestRenderer.withBackdrop(() ->
-                RenderUtil.BLUR_RECT.draw(matrixStack, x, y, width, height, gap * 2f, UIColors.widgetBlur()));
+                RenderUtil.BLUR_RECT.draw(matrixStack, x, y, width, height, gap * 2f, UIColors.widgetBlur(), 0.22f));
 
         float scaleFactor = itemSize / 16f;
         float cursorX = x + gap;

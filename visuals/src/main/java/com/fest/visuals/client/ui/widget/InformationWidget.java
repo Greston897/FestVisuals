@@ -28,7 +28,7 @@ public abstract class InformationWidget extends Widget {
         float textX = x + getGap();
         float textY = y + getGap();
 
-        RenderUtil.BLUR_RECT.draw(matrixStack, x, y, backgroundWidth, backgroundHeight, round, UIColors.widgetBlur());
+        RenderUtil.BLUR_RECT.draw(matrixStack, x, y, backgroundWidth, backgroundHeight, round, UIColors.widgetBlur(), 0.22f);
         getSemiBoldFont().drawGradientText(matrixStack, getName(), textX, textY, fontSize, UIColors.primary(), UIColors.secondary(), nameWidth / 4f);
         getSemiBoldFont().drawText(matrixStack, valueText, textX + nameWidth, textY, fontSize, UIColors.textColor());
 

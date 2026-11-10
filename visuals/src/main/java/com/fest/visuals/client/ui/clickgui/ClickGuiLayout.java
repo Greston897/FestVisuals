@@ -24,7 +24,7 @@ public final class ClickGuiLayout {
         return RenderService.getInstance().scaled(value * COMPACT);
     }
 
-    /** Opaque panel body: the theme colour with its alpha forced, so no world shows through. */
+    /** Theme colour at the requested fade. Panels use it as a veil over liquid glass, not a solid fill. */
     public static java.awt.Color body(float alpha) {
         return ColorUtil.setAlpha(UIColors.blur(), (int) (alpha * 255f));
     }

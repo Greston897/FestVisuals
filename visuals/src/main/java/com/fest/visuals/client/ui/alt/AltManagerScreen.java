@@ -15,6 +15,11 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.List;
 
+import java.awt.Color;
+
+import com.fest.visuals.api.utils.render.RenderUtil;
+import com.fest.visuals.api.utils.render.pipeline.FestRenderer;
+import com.fest.visuals.client.ui.menu.MainMenuTheme;
 import com.fest.visuals.inject.client.MixinMinecraftClientAccessor;
 
 public class AltManagerScreen extends Screen {
@@ -83,7 +88,8 @@ public class AltManagerScreen extends Screen {
         int listWidth = 240;
         int listHeight = 140;
 
-        extractor.fill(listX, listY, listX + listWidth, listY + listHeight, 0xAA000000);
+        FestRenderer.withBackdrop(() -> MainMenuTheme.glass(RenderUtil.matrices(), listX, listY, listWidth, listHeight,
+                10f, new Color(16, 12, 18, 230), 0.26f, 1f));
 
         List<String> alts = AltConfig.getAlts();
         double maxScroll = Math.max(0, alts.size() * 20 - listHeight + 4);
