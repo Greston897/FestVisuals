@@ -1,5 +1,0 @@
-# Optional: run speech recognition on an NVIDIA GPU (Jarvis setting "Использовать GPU").
-# CTranslate2 needs cuBLAS and cuDNN; these wheels ship them (about 1 GB).
--r requirements.txt
-nvidia-cublas-cu12
-nvidia-cudnn-cu12==9.*
